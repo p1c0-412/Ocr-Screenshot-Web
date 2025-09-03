@@ -17,7 +17,7 @@
 
 ### Online Usage
 
-1. Visit the [live demo](https://your-username.github.io/ocr-screenshots)
+1. Visit the [live demo](https://ocr-screenshot-web.vercel.app/)
 2. Drag an image or press `Ctrl+V` to paste from clipboard
 3. Wait for automatic OCR or click "Nhận diện ngay"
 4. Copy or download the extracted text
