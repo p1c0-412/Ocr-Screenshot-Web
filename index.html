@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OCR Screenshots – Nhận diện ký tự từ ảnh</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+  <style>
+    :root{ --bg:#0b1220; --card:#111a2b; --muted:#9fb0d3; --text:#e8eeff; --accent:#6ea8fe; --ok:#37d399; --warn:#ffb454; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0b1220 0%,#0a1020 100%);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+    .container{max-width:1100px;margin:24px auto;padding:0 16px}
+    .title{font-size:24px;margin:0 0 4px}
+    .subtitle{color:var(--muted);margin:0 0 16px}
+    .grid{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}
+    .card{background:var(--card);border:1px solid rgba(255,255,255,.06);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .card h3{margin:0 0 8px;font-size:16px}
+    .card .pad{padding:14px}
+    .drop{border:2px dashed rgba(255,255,255,.18);border-radius:14px;display:flex;align-items:center;justify-content:center;text-align:center;padding:28px;transition:.2s}
+    .drop.dragover{border-color:var(--accent);background:rgba(110,168,254,.08)}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    button,.chip,select,input[type="file"]::file-selector-button{background:#1a2642;color:var(--text);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px;cursor:pointer;transition:.15s;font-weight:600}
+    button:hover,.chip:hover,select:hover,input[type="file"]::file-selector-button:hover{transform:translateY(-1px);border-color:var(--accent)}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .chip{display:inline-flex;align-items:center;gap:8px}
+    .switch{display:inline-flex;align-items:center;gap:8px}
+    .switch input{accent-color:var(--accent)}
+    .muted{color:var(--muted)}
+    .preview{width:100%;max-height:380px;object-fit:contain;background:#0a1324;border-radius:12px;border:1px solid rgba(255,255,255,.06)}
+    .stat{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
+    .kpi{background:#0e1730;border-radius:12px;padding:10px;border:1px solid rgba(255,255,255,.06)}
+    .kpi b{font-size:18px}
+    textarea{width:100%;min-height:420px;resize:vertical;background:#0a1324;color:var(--text);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    progress{width:100%;height:12px;appearance:none}
+    progress::-webkit-progress-bar{background:#0a1324;border-radius:8px}
+    progress::-webkit-progress-value{background:linear-gradient(90deg,var(--accent),#b08bff);border-radius:8px}
+    .hint{font-size:13px;color:var(--muted)}
+    .footer{margin-top:14px;color:var(--muted);font-size:13px}
+    @media (max-width:920px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">OCR Screenshots</h1>
+    <p class="subtitle">Dán (Ctrl+V), kéo‑thả, chọn ảnh hoặc chụp webcam → Tự động nhận diện tối đa <b>1000</b> ký tự. Hỗ trợ: <b>PNG, JPG/JPEG, WEBP, GIF, BMP, SVG</b> và <b>HEIC/HEIF</b> (tự chuyển). Xử lý trực tiếp trên trình duyệt.</p>
+
+    <div class="grid">
+      <!-- LEFT: INPUT + PREVIEW -->
+      <div class="card pad">
+        <h3>Ảnh đầu vào</h3>
+        <div id="dropzone" class="drop" tabindex="0" aria-label="Kéo thả ảnh vào đây">
+          <div>
+            <p><b>Kéo‑thả ảnh</b> vào đây hoặc <b>dán ảnh</b> (Ctrl+V)</p>
+            <div class="row" style="justify-content:center;margin-top:8px">
+              <label class="chip" style="gap:6px">
+                <input id="file" type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.bmp,.heic,.heif,.svg,image/*" hidden>
+                <span>Chọn ảnh…</span>
+              </label>
+              <button id="pasteBtn" title="Thử đọc ảnh từ clipboard">Dán từ Clipboard</button>
+              <button id="cameraBtn" title="Dùng webcam">Chụp webcam</button>
+            </div>
+            <p class="hint" style="margin-top:8px">Mẹo: chụp màn hình rồi nhấn <kbd>Ctrl</kbd>+<kbd>V</kbd> để dán nhanh.</p>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <img id="preview" class="preview" alt="Xem trước ảnh" />
+        </div>
+        <div class="row" style="margin-top:10px;align-items:center">
+          <label class="switch"><input id="autoOCR" type="checkbox" checked> Tự động OCR khi dán/kéo‑thả</label>
+          <label class="switch"><input id="rmBreaks" type="checkbox"> Bỏ xuống dòng</label>
+          <label class="switch"><input id="trimSpaces" type="checkbox" checked> Chuẩn hoá khoảng trắng</label>
+          <select id="lang">
+            <option value="vie">Tiếng Việt (vie)</option>
+            <option value="eng">English (eng)</option>
+          </select>
+        </div>
+        <div style="margin-top:10px">
+          <button id="runBtn">Nhận diện ngay</button>
+          <button id="clearBtn" class="muted">Xoá ảnh</button>
+        </div>
+        <div style="margin-top:12px">
+          <progress id="prog" value="0" max="1"></progress>
+          <div class="row" style="justify-content:space-between;margin-top:6px">
+            <span id="status" class="muted">Sẵn sàng.</span>
+            <span id="timer" class="muted"></span>
+          </div>
+        </div>
+        <div class="stat">
+          <div class="kpi"><div class="muted">Độ tin cậy TB</div><b id="conf">—</b></div>
+          <div class="kpi"><div class="muted">Kích thước ảnh</div><b id="imgsize">—</b></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: OUTPUT -->
+      <div class="card pad">
+        <h3>Kết quả (giới hạn 1000 ký tự)</h3>
+        <textarea id="out" placeholder="Kết quả OCR sẽ xuất hiện ở đây…" spellcheck="false"></textarea>
+        <div class="row" style="margin-top:8px;justify-content:space-between;align-items:center">
+          <div class="row">
+            <button id="copyBtn">Copy</button>
+            <button id="downloadBtn">Tải .txt</button>
+            <button id="upperBtn" title="Viết HOA">HOA</button>
+            <button id="lowerBtn" title="viết thường">thường</button>
+          </div>
+          <div class="muted">Ký tự: <span id="count">0</span>/1000</div>
+        </div>
+        <p class="footer">Quyền riêng tư: ảnh được xử lý trực tiếp trên máy bạn. Ứng dụng chỉ tải mô hình OCR và dữ liệu ngôn ngữ từ CDN.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Webcam modal (simple) -->
+  <dialog id="camModal" style="border:none;border-radius:14px;padding:0;max-width:720px;width:92%">
+    <div class="pad" style="background:var(--card)">
+      <h3>Chụp từ webcam</h3>
+      <video id="cam" autoplay playsinline style="width:100%;background:black;border-radius:12px"></video>
+      <div class="row" style="margin-top:8px">
+        <button id="shotBtn">Chụp</button>
+        <button id="closeCam" class="muted">Đóng</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    // ---------- Helpers ----------
+    const $ = sel => document.querySelector(sel);
+    const out = $('#out');
+    const countEl = $('#count');
+    const prog = $('#prog');
+    const statusEl = $('#status');
+    const preview = $('#preview');
+    const confEl = $('#conf');
+    const imgSizeEl = $('#imgsize');
+    const timerEl = $('#timer');
+
+    let currentBlob = null;
+    let workerBusy = false;
+
+    function setStatus(msg){ statusEl.textContent = msg; }
+    function setProgress(p){ prog.value = p; }
+    function setCount(){ countEl.textContent = out.value.length; }
+
+    function cleanAndLimit(text){
+      const rmBreaks = $('#rmBreaks').checked;
+      const trimSpaces = $('#trimSpaces').checked;
+      let t = text;
+      if (rmBreaks) t = t.replace(/[\r\n]+/g, ' ');
+      if (trimSpaces) t = t.replace(/\s+/g, ' ').replace(/^[\s\u200B]+|[\s\u200B]+$/g,'');
+      if (t.length > 1000) t = t.slice(0, 1000);
+      return t;
+    }
+
+    function showImageInfo(img){
+      imgSizeEl.textContent = `${img.naturalWidth || img.width}×${img.naturalHeight || img.height}`;
+    }
+
+    // ---------- Format normalization (HEIC/HEIF, etc.) ----------
+    async function ensureHeicLib(){
+      if(window.heic2any) return true;
+      return new Promise((resolve)=>{
+        const s=document.createElement('script');
+        s.src='https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+        s.onload=()=>resolve(true); s.onerror=()=>resolve(false);
+        document.head.appendChild(s);
+      });
+    }
+
+    async function normalizeToImageBlob(file){
+      const type = (file.type||'').toLowerCase();
+      const name = (file.name||'').toLowerCase();
+      const isImg = type.startsWith('image/');
+      const byExt = (ext)=> name.endsWith(ext);
+
+      // HEIC/HEIF → PNG
+      if(type==='image/heic' || type==='image/heif' || byExt('.heic') || byExt('.heif')){
+        setStatus('Đang chuyển đổi HEIC/HEIF…');
+        const ok = await ensureHeicLib();
+        if(!ok){ throw new Error('Không tải được bộ chuyển HEIC.'); }
+        const pngBlob = await window.heic2any({ blob: file, toType: 'image/png' });
+        return pngBlob;
+      }
+
+      // TIFF (không hỗ trợ hiển thị trực tiếp ở nhiều trình duyệt)
+      if(type==='image/tiff' || byExt('.tif') || byExt('.tiff')){
+        throw new Error('TIFF chưa được hỗ trợ trực tiếp. Hãy lưu sang PNG/JPG trước khi OCR.');
+      }
+
+      // SVG giữ nguyên
+      if(type==='image/svg+xml' || byExt('.svg')) return file;
+
+      // PNG/JPEG/WEBP/GIF/BMP và ảnh phổ biến khác
+      if(isImg || byExt('.png')||byExt('.jpg')||byExt('.jpeg')||byExt('.webp')||byExt('.gif')||byExt('.bmp')){
+        return file;
+      }
+
+      // Fallback: ép về PNG bằng canvas
+      try{
+        const bmp = await createImageBitmap(file);
+        const c = document.createElement('canvas');
+        c.width=bmp.width; c.height=bmp.height;
+        c.getContext('2d').drawImage(bmp,0,0);
+        const blob = await new Promise(r=>c.toBlob(r,'image/png'));
+        return blob || file;
+      }catch(e){
+        throw new Error('Định dạng không được hỗ trợ: ' + (type||name));
+      }
+    }
+
+    // ---------- OCR Core ----------
+    async function runOCR(){
+      if(!currentBlob) { setStatus('Chưa có ảnh. Hãy dán/kéo‑thả hoặc chọn ảnh.'); return; }
+      if(workerBusy) { setStatus('Đang xử lý…'); return; }
+      workerBusy = true;
+      out.value = ''; setCount(); confEl.textContent = '—'; setProgress(0); setStatus('Đang tải mô hình…'); timerEl.textContent='';
+      const t0 = performance.now();
+      const lang = $('#lang').value || 'vie';
+      try{
+        const { data } = await Tesseract.recognize(currentBlob, lang, {
+          logger: m => {
+            if(m.status === 'recognizing text' && typeof m.progress === 'number') setProgress(m.progress);
+            if(m.status) setStatus(m.status.replace(/_/g,' ') + (m.progress? ` ${(m.progress*100).toFixed(0)}%` : ''));
+          }
+        });
+        const t1 = performance.now();
+        const ms = Math.max(0, Math.round(t1 - t0));
+        timerEl.textContent = `⏱ ${ms} ms`;
+
+        let txt = cleanAndLimit(data.text || '');
+        out.value = txt; setCount();
+        confEl.textContent = data.confidence ? (data.confidence.toFixed(1) + '%') : '—';
+        setStatus('Hoàn tất.');
+      }catch(err){ showError(err); }
+      finally{ workerBusy = false; setProgress(1); }
+    }
+
+    // ---------- Load & preview ----------
+    async function loadFileToPreview(file){
+      const blob = file instanceof Blob ? file : new Blob([file]);
+      let imgBlob;
+      try{ imgBlob = await normalizeToImageBlob(blob); }
+      catch(err){ showError(err); return; }
+      currentBlob = imgBlob;
+      const url = URL.createObjectURL(imgBlob);
+      preview.src = url;
+      preview.onload = ()=>{ showImageInfo(preview); URL.revokeObjectURL(url); if ($('#autoOCR').checked) runOCR(); };
+    }
+
+    function showError(err){ console.error(err); setStatus('Lỗi: ' + (err && err.message ? err.message : err)); }
+
+    // ---------- Events: Drag & Drop, Paste, File ----------
+    const drop = $('#dropzone');
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+    drop.addEventListener('drop', e => {
+      e.preventDefault(); drop.classList.remove('dragover');
+      const f = [...(e.dataTransfer.files||[])][0];
+      if(f) loadFileToPreview(f);
+    });
+
+    document.addEventListener('paste', async e => {
+      const items = e.clipboardData && e.clipboardData.items ? [...e.clipboardData.items] : [];
+      const imgItem = items.find(it => it.type && it.type.startsWith('image/'));
+      if(imgItem){ const blob = imgItem.getAsFile(); loadFileToPreview(blob); }
+    });
+
+    $('#pasteBtn').addEventListener('click', async () => {
+      try{
+        const items = await navigator.clipboard.read();
+        for(const it of items){
+          const img = it.types.find(t => t.startsWith('image/'));
+          if(img){ const blob = await it.getType(img); loadFileToPreview(blob); return; }
+        }
+        setStatus('Clipboard không có ảnh.');
+      }catch(err){ showError(err); }
+    });
+
+    $('#file').addEventListener('change', e => { const f = e.target.files[0]; if(f) loadFileToPreview(f); e.target.value = ''; });
+
+    $('#runBtn').addEventListener('click', runOCR);
+    $('#clearBtn').addEventListener('click', () => { currentBlob=null; preview.removeAttribute('src'); imgSizeEl.textContent='—'; setStatus('Đã xoá ảnh.'); });
+
+    out.addEventListener('input', setCount);
+
+    // ---------- Output actions ----------
+    $('#copyBtn').addEventListener('click', async () => {
+      try{ await navigator.clipboard.writeText(out.value); setStatus('Đã copy kết quả vào clipboard.'); }
+      catch(e){ showError(e); }
+    });
+    $('#downloadBtn').addEventListener('click', () => {
+      const blob = new Blob([out.value], {type:'text/plain;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'ocr_result.txt';
+      a.click(); URL.revokeObjectURL(a.href);
+    });
+    $('#upperBtn').addEventListener('click', ()=>{ out.value = cleanAndLimit(out.value.toUpperCase()); setCount(); });
+    $('#lowerBtn').addEventListener('click', ()=>{ out.value = cleanAndLimit(out.value.toLowerCase()); setCount(); });
+
+    // ---------- Webcam ----------
+    const camModal = $('#camModal');
+    let stream=null;
+    $('#cameraBtn').addEventListener('click', async ()=>{
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({video:true});
+        $('#cam').srcObject = stream; camModal.showModal();
+      }catch(err){ showError(err); }
+    });
+    $('#closeCam').addEventListener('click', ()=>{ camModal.close(); if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }});
+    $('#shotBtn').addEventListener('click', ()=>{
+      const video = $('#cam'); if(!video.videoWidth) return;
+      const c = document.createElement('canvas'); c.width = video.videoWidth; c.height = video.videoHeight;
+      c.getContext('2d').drawImage(video,0,0);
+      c.toBlob(b=>{ if(b){ loadFileToPreview(b); camModal.close(); if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } } }, 'image/png');
+    });
+
+    // ---------- Keyboard shortcuts ----------
+    window.addEventListener('keydown', (e)=>{
+      if(e.key==='Escape'){ out.value=''; setCount(); }
+      if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='b'){ $('#rmBreaks').checked = !$('#rmBreaks').checked; out.value = cleanAndLimit(out.value); setCount(); }
+    });
+
+    setStatus('Sẵn sàng. Dán ảnh để bắt đầu.');
+  </script>
+</body>
+</html>
