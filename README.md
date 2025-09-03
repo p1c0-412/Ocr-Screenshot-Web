@@ -154,12 +154,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - [ ] Text formatting preservation
 - [ ] Cloud storage integration (optional)
 
-## Acknowledgments
-
-- [Tesseract.js](https://github.com/naptha/tesseract.js) - OCR engine
-- [heic2any](https://github.com/alexcorvi/heic2any) - HEIC conversion
-- [jsDelivr](https://www.jsdelivr.com/) - CDN services
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
