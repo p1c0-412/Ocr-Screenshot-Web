@@ -62,12 +62,6 @@ python -m http.server 8000
 - **Normalize Spaces**: Remove extra whitespace
 - **Language**: Vietnamese or English recognition
 
-## Technology Stack
-
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **OCR Engine**: [Tesseract.js](https://github.com/naptha/tesseract.js) v4.0.2
-- **HEIC Support**: [heic2any](https://github.com/alexcorvi/heic2any) v0.0.4
-- **CDN**: jsDelivr for external libraries
 
 ## Browser Support
 
